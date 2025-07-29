@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>calc ~ terminal calculator</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <h1>$ calc --interactive</h1>
+        <div class="calculator">
+            <div class="display">
+                <input type="text" id="display" readonly value="0">
+            </div>
+            <div class="buttons">
+                <button id="clear" class="btn btn-clear">C</button>
+                <button class="btn btn-operation">±</button>
+                <button class="btn btn-operation">%</button>
+                <button class="btn btn-operation operation" data-operation="divide">÷</button>
+                
+                <button class="btn btn-number number">7</button>
+                <button class="btn btn-number number">8</button>
+                <button class="btn btn-number number">9</button>
+                <button class="btn btn-operation operation" data-operation="multiply">×</button>
+                
+                <button class="btn btn-number number">4</button>
+                <button class="btn btn-number number">5</button>
+                <button class="btn btn-number number">6</button>
+                <button class="btn btn-operation operation" data-operation="subtract">−</button>
+                
+                <button class="btn btn-number number">1</button>
+                <button class="btn btn-number number">2</button>
+                <button class="btn btn-number number">3</button>
+                <button class="btn btn-operation operation" data-operation="add">+</button>
+                
+                <button class="btn btn-number number btn-zero">0</button>
+                <button class="btn btn-number" id="decimal">.</button>
+                <button class="btn btn-equals" id="equals">=</button>
+            </div>
+        </div>
+        
+        <div class="backend-status" id="backend-status">
+            <span class="status-indicator status-ok"></span>
+            Checking backend connection...
+        </div>
+        
+        <div class="api-info">
+            <h3># API Documentation</h3>
+            <div class="endpoint">
+                <strong>POST /api/calculate</strong>
+                <pre>{"a": 10, "b": 5, "operation": "add"}</pre>
+            </div>
+            <div class="endpoint">
+                <strong>GET /health</strong>
+                <span>Frontend health check</span>
+            </div>
+            <div class="endpoint">
+                <strong>GET /api/backend-health</strong>
+                <span>Backend health check proxy</span>
+            </div>
+            <div class="endpoint">
+                <strong>Backend: localhost:8081</strong>
+                <span>Go calculation service</span>
+            </div>
+        </div>
+    </div>
+    <script src="calculator.js"></script>
+</body>
+</html>
