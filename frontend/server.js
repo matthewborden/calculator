@@ -64,11 +64,13 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`Calculator frontend server running on port ${PORT}`);
-  console.log(`Backend API URL: ${BACKEND_URL}`);
-  console.log(`Visit http://localhost:${PORT} to use the calculator`);
-});
+// Start server (only if not in test environment)
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(`Calculator frontend server running on port ${PORT}`);
+    console.log(`Backend API URL: ${BACKEND_URL}`);
+    console.log(`Visit http://localhost:${PORT} to use the calculator`);
+  });
+}
 
 module.exports = app;

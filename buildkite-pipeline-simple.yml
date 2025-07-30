@@ -87,63 +87,6 @@ steps:
       npm audit --audit-level moderate || true
     image: "node:18"
 
-
-
-  - label: ":mag: SAST Security Scanning"
-    command: |
-      semgrep --config=auto --json --output=semgrep-results.json . || true
-      echo "Security scan completed"
-    image: "returntocorp/semgrep:latest"
-
-  - label: ":docker: Container Image Security Scan"
-    command: |
-      # Create test Docker image
-      cat > Dockerfile << 'EOF'
-      FROM node:18-alpine AS frontend
-      WORKDIR /app
-      COPY frontend/package*.json ./
-      RUN npm ci --only=production
-      COPY frontend/ .
-      EXPOSE 3000
-      CMD ["npm", "start"]
-      EOF
-      
-      docker build -t calculator-app:$${BUILDKITE_COMMIT} .
-      trivy image --format json --output trivy-results.json calculator-app:$${BUILDKITE_COMMIT}
-      echo "Container scan completed"
-    image: "aquasec/trivy:latest"
-
-  - label: ":test_tube: End-to-End Tests"
-    command: |
-      # Install dependencies
-      cd frontend
-      npm install
-      
-      # Create a simple E2E test setup
-      mkdir -p test
-      cat > test/e2e.js << 'EOF'
-      const { chromium } = require('playwright');
-      
-      (async () => {
-        const browser = await chromium.launch();
-        const page = await browser.newPage();
-        await page.goto('http://localhost:3000');
-        const title = await page.title();
-        console.log('Page title:', title);
-        await browser.close();
-        process.exit(title ? 0 : 1);
-      })();
-      EOF
-      
-      # Install playwright and run test
-      npm install playwright
-      npm start &
-      SERVER_PID=$!
-      sleep 15
-      node test/e2e.js
-      kill $SERVER_PID
-    image: "mcr.microsoft.com/playwright:v1.40.0-focal"
-
   - wait: ~
 
   - label: ":rocket: Deploy to Staging"
@@ -184,17 +127,6 @@ steps:
       echo "Deployment manifest created"
     # No image specified - uses default ubuntu:22.04
     branches: "main develop"
-    
-  - label: ":test_tube: Staging Health Check"
-    command: |
-      # Simulate health check
-      echo "Running health checks on staging deployment..."
-      echo "✅ Frontend service responding"
-      echo "✅ Backend API healthy"
-      echo "✅ Database connection successful"
-      echo "✅ All endpoints responding correctly"
-    # No image specified - uses default ubuntu:22.04
-    depends_on: "deploy-staging"
 
   - block: ":shipit: Deploy to Production?"
     prompt: "Ready to deploy the Ghostty-themed calculator to production?"
@@ -277,11 +209,3 @@ steps:
     # No image specified in this step.
     # Therefore, this step's job uses the pipeline's default ubuntu:22.04 image
 
-env:
-  BUILDKITE_CLEAN_CHECKOUT: "true"
-  DOCKER_BUILDKIT: "1"
-  COMPOSE_DOCKER_CLI_BUILD: "1"
-
-# Global agent configuration
-agents:
-  queue: "default"

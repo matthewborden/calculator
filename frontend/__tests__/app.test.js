@@ -1,7 +1,11 @@
 const request = require('supertest');
+
+// Mock a non-existent backend for testing
+process.env.BACKEND_URL = 'http://localhost:9999';
 const app = require('../server');
 
 describe('Frontend Server', () => {
+
   test('serves main page', async () => {
     const response = await request(app).get('/');
     expect(response.status).toBe(200);
