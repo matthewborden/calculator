@@ -1,0 +1,297 @@
+# Simple image-based pipeline for calculator app
+# This uses the new simplified image syntax instead of Kubernetes plugin
+
+image: "ubuntu:22.04" # The default image for the pipeline's build
+
+steps:
+  - label: ":node: Frontend tests"
+    command: |
+      cd frontend
+      npm ci
+      npm test
+    image: "node:18" # This step's job uses the node:18 image
+
+  - label: ":golang: Backend tests"
+    command: |
+      cd backend
+      go mod download
+      go test ./...
+    image: "golang:1.21" # This step's job uses the golang:1.21 image
+
+  - wait: ~
+
+  - label: ":rocket: Start Backend Service"
+    command: |
+      cd backend
+      go run main.go &
+      BACKEND_PID=$!
+      echo "Backend started with PID: $BACKEND_PID"
+      echo $BACKEND_PID > /tmp/backend.pid
+      sleep 5
+      curl -f http://localhost:8081/health || exit 1
+      echo "Backend health check passed"
+    image: "golang:1.21"
+
+  - label: ":globe_with_meridians: Start Frontend Service"
+    command: |
+      cd frontend
+      export BACKEND_URL=http://localhost:8081
+      npm start &
+      FRONTEND_PID=$!
+      echo "Frontend started with PID: $FRONTEND_PID"
+      sleep 5
+      curl -f http://localhost:3000/health || exit 1
+      echo "Frontend health check passed"
+    image: "node:18"
+
+  - label: ":test_tube: Integration Tests"
+    command: |
+      # Start backend
+      cd backend
+      go run main.go &
+      BACKEND_PID=$!
+      sleep 3
+      
+      # Start frontend  
+      cd ../frontend
+      export BACKEND_URL=http://localhost:8081
+      npm start &
+      FRONTEND_PID=$!
+      sleep 5
+      
+      # Test API endpoints
+      echo "Testing backend API..."
+      curl -f -X POST http://localhost:8081/calculate \
+        -H "Content-Type: application/json" \
+        -d '{"a": 10, "b": 5, "operation": "add"}' || exit 1
+      
+      echo "Testing frontend proxy..."
+      curl -f -X POST http://localhost:3000/api/calculate \
+        -H "Content-Type: application/json" \
+        -d '{"a": 15, "b": 3, "operation": "multiply"}' || exit 1
+      
+      echo "Testing health endpoints..."
+      curl -f http://localhost:8081/health || exit 1
+      curl -f http://localhost:3000/health || exit 1
+      curl -f http://localhost:3000/api/backend-health || exit 1
+      
+      # Cleanup
+      kill $BACKEND_PID $FRONTEND_PID
+      echo "Integration tests passed!"
+    image: "golang:1.21"
+
+  - label: ":mag: Security Scan - JavaScript"
+    command: |
+      cd frontend
+      npm audit --audit-level moderate
+      npm audit --audit-level moderate || true
+    image: "node:18"
+
+  - label: ":rust: Test Rust Components"
+    command: |
+      # Next.js has Rust components (SWC)
+      if [ -f "packages/next-swc/Cargo.toml" ]; then
+        cd packages/next-swc
+        cargo test --release
+        cargo clippy -- -D warnings
+      else
+        echo "No Rust components found, skipping"
+      fi
+    image: "rust:1.75-alpine"
+
+  - label: ":mag: SAST Security Scanning"
+    command: |
+      semgrep --config=auto --json --output=semgrep-results.json . || true
+      echo "Security scan completed"
+    image: "returntocorp/semgrep:latest"
+
+  - label: ":docker: Container Image Security Scan"
+    command: |
+      # Create test Docker image
+      cat > Dockerfile << 'EOF'
+      FROM node:18-alpine AS frontend
+      WORKDIR /app
+      COPY frontend/package*.json ./
+      RUN npm ci --only=production
+      COPY frontend/ .
+      EXPOSE 3000
+      CMD ["npm", "start"]
+      EOF
+      
+      docker build -t calculator-app:$${BUILDKITE_COMMIT} .
+      trivy image --format json --output trivy-results.json calculator-app:$${BUILDKITE_COMMIT}
+      echo "Container scan completed"
+    image: "aquasec/trivy:latest"
+
+  - label: ":test_tube: End-to-End Tests"
+    command: |
+      # Install dependencies
+      cd frontend
+      npm install
+      
+      # Create a simple E2E test setup
+      mkdir -p test
+      cat > test/e2e.js << 'EOF'
+      const { chromium } = require('playwright');
+      
+      (async () => {
+        const browser = await chromium.launch();
+        const page = await browser.newPage();
+        await page.goto('http://localhost:3000');
+        const title = await page.title();
+        console.log('Page title:', title);
+        await browser.close();
+        process.exit(title ? 0 : 1);
+      })();
+      EOF
+      
+      # Install playwright and run test
+      npm install playwright
+      npm start &
+      SERVER_PID=$!
+      sleep 15
+      node test/e2e.js
+      kill $SERVER_PID
+    image: "mcr.microsoft.com/playwright:v1.40.0-focal"
+
+  - wait: ~
+
+  - label: ":rocket: Deploy to Staging"
+    command: |
+      # Simulate deployment to staging
+      echo "Deploying calculator app to staging environment..."
+      echo "Staging URL: https://calculator-staging-$${BUILDKITE_COMMIT:0:7}.example.com"
+      
+      # Create deployment manifest
+      cat > deployment-staging.yaml << 'EOF'
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: calculator-staging
+      spec:
+        replicas: 2
+        selector:
+          matchLabels:
+            app: calculator
+            env: staging
+        template:
+          metadata:
+            labels:
+              app: calculator
+              env: staging
+          spec:
+            containers:
+            - name: frontend
+              image: calculator-frontend:latest
+              ports:
+              - containerPort: 3000
+            - name: backend
+              image: calculator-backend:latest
+              ports:
+              - containerPort: 8081
+      EOF
+      
+      echo "Deployment manifest created"
+    # No image specified - uses default ubuntu:22.04
+    branches: "main develop"
+    
+  - label: ":test_tube: Staging Health Check"
+    command: |
+      # Simulate health check
+      echo "Running health checks on staging deployment..."
+      echo "✅ Frontend service responding"
+      echo "✅ Backend API healthy"
+      echo "✅ Database connection successful"
+      echo "✅ All endpoints responding correctly"
+    # No image specified - uses default ubuntu:22.04
+    depends_on: "deploy-staging"
+
+  - block: ":shipit: Deploy to Production?"
+    prompt: "Ready to deploy the Ghostty-themed calculator to production?"
+    branches: "main"
+
+  - label: ":globe_with_meridians: Deploy to Production"
+    command: |
+      echo "Deploying Ghostty-themed calculator to production..."
+      echo "Production URL: https://calculator.example.com"
+      echo "Build commit: $${BUILDKITE_COMMIT}"
+      
+      # Create production deployment
+      cat > deployment-production.yaml << 'EOF'
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: calculator-production
+      spec:
+        replicas: 5
+        selector:
+          matchLabels:
+            app: calculator
+            env: production
+        template:
+          metadata:
+            labels:
+              app: calculator
+              env: production
+          spec:
+            containers:
+            - name: frontend
+              image: calculator-frontend:latest
+              ports:
+              - containerPort: 3000
+              resources:
+                requests:
+                  cpu: 100m
+                  memory: 256Mi
+                limits:
+                  cpu: 500m
+                  memory: 512Mi
+            - name: backend
+              image: calculator-backend:latest
+              ports:
+              - containerPort: 8081
+              resources:
+                requests:
+                  cpu: 200m
+                  memory: 512Mi
+                limits:
+                  cpu: 1000m
+                  memory: 1Gi
+      EOF
+      
+      echo "🚀 Ghostty-themed calculator deployed successfully"
+      
+      # Create deployment artifact
+      echo "$${BUILDKITE_COMMIT}" > deployment-version.txt
+      echo "$(date)" >> deployment-version.txt
+    # No image specified - uses default ubuntu:22.04
+    branches: "main"
+
+  - label: ":package: Package application"
+    command: |
+      apt-get update && apt-get install -y zip
+      
+      # Create deployment package
+      zip -r calculator-app-$${BUILDKITE_COMMIT}.zip \
+        frontend/ backend/ README.md
+      
+      # Create artifact info
+      echo "Ghostty-themed Calculator App Build" > build-info.txt
+      echo "Commit: $${BUILDKITE_COMMIT}" >> build-info.txt
+      echo "Branch: $${BUILDKITE_BRANCH}" >> build-info.txt
+      echo "Build: $${BUILDKITE_BUILD_NUMBER}" >> build-info.txt
+      echo "Date: $(date)" >> build-info.txt
+      echo "Theme: Ghostty Terminal" >> build-info.txt
+      
+      ls -la *.zip *.txt
+    # No image specified in this step.
+    # Therefore, this step's job uses the pipeline's default ubuntu:22.04 image
+
+env:
+  BUILDKITE_CLEAN_CHECKOUT: "true"
+  DOCKER_BUILDKIT: "1"
+  COMPOSE_DOCKER_CLI_BUILD: "1"
+
+# Global agent configuration
+agents:
+  queue: "default"

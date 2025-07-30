@@ -112,9 +112,16 @@ go test -v ./...
 curl -f http://localhost:3000/api/backend-health
 ```
 
-## 🏗️ Buildkite Pipeline
+## 🏗️ Buildkite Pipelines
 
-The pipeline demonstrates **agent-stack-k8s** with multiple container images:
+This repository includes **two pipeline configurations**:
+
+1. **`buildkite-pipeline.yml`** - Full Kubernetes plugin with advanced features
+2. **`buildkite-pipeline-simple.yml`** - Simple image syntax for easy setup
+
+### Kubernetes Plugin Pipeline
+
+The advanced pipeline demonstrates **agent-stack-k8s** with multiple container images:
 
 | Step | Container | Purpose |
 |------|-----------|---------|
@@ -130,6 +137,27 @@ The pipeline demonstrates **agent-stack-k8s** with multiple container images:
 - 🔗 **Service Integration** - Tests full request flow
 - 📦 **Artifact Creation** - Deployment packages with metadata
 - 🩺 **Health Checking** - Validates all endpoints
+
+### Simple Image Syntax Pipeline
+
+The simplified pipeline uses the new **image syntax** for easier configuration:
+
+```yaml
+image: "ubuntu:22.04" # Default for pipeline
+
+steps:
+  - label: ":node: Frontend tests"
+    command: npm test
+    image: "node:18" # Override for this step
+```
+
+**Benefits:**
+- 🚀 **Quick Setup** - Minimal configuration required
+- 📖 **Easy to Read** - Clean, simple syntax
+- 🔄 **Migration Friendly** - Easy to convert existing pipelines
+- 🏃 **Faster Startup** - Less overhead than Kubernetes pods
+
+See [`PIPELINE_COMPARISON.md`](PIPELINE_COMPARISON.md) for detailed comparison.
 
 ## 📡 API Reference
 
