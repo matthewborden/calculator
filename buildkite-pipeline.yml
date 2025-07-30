@@ -49,6 +49,7 @@ steps:
     command: |
       cd frontend
       export BACKEND_URL=http://localhost:8080
+      npm install
       npm start &
       FRONTEND_PID=$!
       echo "Frontend started with PID: $FRONTEND_PID"
