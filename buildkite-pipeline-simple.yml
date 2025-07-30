@@ -1,7 +1,4 @@
-# Simple image-based pipeline for calculator app
-# This uses the new simplified image syntax instead of Kubernetes plugin
-
-image: "ubuntu:22.04" # The default image for the pipeline's build
+image: "ubuntu:22.04"
 
 steps:
   - label: ":node: Frontend tests"
@@ -9,14 +6,14 @@ steps:
       cd frontend
       npm ci
       npm test
-    image: "node:18" # This step's job uses the node:18 image
+    image: "node:18"
 
   - label: ":golang: Backend tests"
     command: |
       cd backend
       go mod download
       go test ./...
-    image: "golang:1.21" # This step's job uses the golang:1.21 image
+    image: "golang:1.21"
 
   - wait: ~
 
@@ -86,115 +83,6 @@ steps:
       echo "Integration tests passed!"
     image: "golang:1.21"
 
-  - label: ":mag: Security Scan - JavaScript"
-    command: |
-      cd frontend
-      npm audit --audit-level moderate
-      npm audit --audit-level moderate || true
-    image: "node:18"
-
-  - wait: ~
-
-  - label: ":rocket: Deploy to Staging"
-    command: |
-      # Simulate deployment to staging
-      echo "Deploying calculator app to staging environment..."
-      echo "Staging URL: https://calculator-staging-$${BUILDKITE_COMMIT:0:7}.example.com"
-
-      # Create deployment manifest
-      cat > deployment-staging.yaml << 'EOF'
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: calculator-staging
-      spec:
-        replicas: 2
-        selector:
-          matchLabels:
-            app: calculator
-            env: staging
-        template:
-          metadata:
-            labels:
-              app: calculator
-              env: staging
-          spec:
-            containers:
-            - name: frontend
-              image: calculator-frontend:latest
-              ports:
-              - containerPort: 3000
-            - name: backend
-              image: calculator-backend:latest
-              ports:
-              - containerPort: 8081
-      EOF
-
-      echo "Deployment manifest created"
-    # No image specified - uses default ubuntu:22.04
-    branches: "main develop"
-
-  - block: ":shipit: Deploy to Production?"
-    prompt: "Ready to deploy the Ghostty-themed calculator to production?"
-    branches: "main"
-
-  - label: ":globe_with_meridians: Deploy to Production"
-    command: |
-      echo "Deploying Ghostty-themed calculator to production..."
-      echo "Production URL: https://calculator.example.com"
-      echo "Build commit: $${BUILDKITE_COMMIT}"
-
-      # Create production deployment
-      cat > deployment-production.yaml << 'EOF'
-      apiVersion: apps/v1
-      kind: Deployment
-      metadata:
-        name: calculator-production
-      spec:
-        replicas: 5
-        selector:
-          matchLabels:
-            app: calculator
-            env: production
-        template:
-          metadata:
-            labels:
-              app: calculator
-              env: production
-          spec:
-            containers:
-            - name: frontend
-              image: calculator-frontend:latest
-              ports:
-              - containerPort: 3000
-              resources:
-                requests:
-                  cpu: 100m
-                  memory: 256Mi
-                limits:
-                  cpu: 500m
-                  memory: 512Mi
-            - name: backend
-              image: calculator-backend:latest
-              ports:
-              - containerPort: 8081
-              resources:
-                requests:
-                  cpu: 200m
-                  memory: 512Mi
-                limits:
-                  cpu: 1000m
-                  memory: 1Gi
-      EOF
-
-      echo "🚀 Ghostty-themed calculator deployed successfully"
-
-      # Create deployment artifact
-      echo "$${BUILDKITE_COMMIT}" > deployment-version.txt
-      echo "$(date)" >> deployment-version.txt
-    # No image specified - uses default ubuntu:22.04
-    branches: "main"
-
   - label: ":package: Package application"
     command: |
       apt-get update && apt-get install -y zip
@@ -212,6 +100,3 @@ steps:
       echo "Theme: Ghostty Terminal" >> build-info.txt
 
       ls -la *.zip *.txt
-    # No image specified in this step.
-    # Therefore, this step's job uses the pipeline's default ubuntu:22.04 image
-

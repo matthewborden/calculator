@@ -6,11 +6,10 @@ steps:
       npm test
     plugins:
       - kubernetes:
-          podSpec:
+          podSpecPatch:
             containers:
-              - image: node:18
-                name: frontend-test
-                workingDir: /buildkite/builds
+            - name: container-0
+              image: node:18
 
   - label: ":golang: Backend tests"
     command: |
@@ -19,11 +18,10 @@ steps:
       go test ./...
     plugins:
       - kubernetes:
-          podSpec:
+          podSpecPatch:
             containers:
-              - image: golang:1.21
-                name: backend-test
-                workingDir: /buildkite/builds
+            - name: container-0
+              image: golang:1.21
 
   - wait: ~
 
@@ -35,20 +33,19 @@ steps:
       echo "Backend started with PID: $BACKEND_PID"
       echo $BACKEND_PID > /tmp/backend.pid
       sleep 5
-      curl -f http://localhost:8080/health || exit 1
+      curl -f http://localhost:8081/health || exit 1
       echo "Backend health check passed"
     plugins:
       - kubernetes:
-          podSpec:
+          podSpecPatch:
             containers:
-              - image: golang:1.21
-                name: backend-service
-                workingDir: /buildkite/builds
+            - name: container-0
+              image: golang:1.21
 
   - label: ":globe_with_meridians: Start Frontend Service"
     command: |
       cd frontend
-      export BACKEND_URL=http://localhost:8080
+      export BACKEND_URL=http://localhost:8081
       npm install
       npm start &
       FRONTEND_PID=$!
@@ -58,11 +55,10 @@ steps:
       echo "Frontend health check passed"
     plugins:
       - kubernetes:
-          podSpec:
+          podSpecPatch:
             containers:
-              - image: node:18
-                name: frontend-service
-                workingDir: /buildkite/builds
+            - name: container-0
+              image: node:18
 
   - label: ":test_tube: Full Integration Tests"
     command: |
@@ -105,11 +101,10 @@ steps:
       echo "Integration tests passed!"
     plugins:
       - kubernetes:
-          podSpec:
+          podSpecPatch:
             containers:
-              - image: golang:1.21
-                name: integration-test
-                workingDir: /buildkite/builds
+            - name: container-0
+              image: golang:1.21
 
   - label: ":package: Package application"
     command: |
@@ -129,8 +124,7 @@ steps:
       ls -la *.zip *.txt
     plugins:
       - kubernetes:
-          podSpec:
+          podSpecPatch:
             containers:
-              - image: ubuntu:22.04
-                name: package
-                workingDir: /buildkite/builds
+            - name: container-0
+              image: ubuntu:22.04
