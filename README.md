@@ -157,8 +157,6 @@ steps:
 - 🔄 **Migration Friendly** - Easy to convert existing pipelines
 - 🏃 **Faster Startup** - Less overhead than Kubernetes pods
 
-See [`PIPELINE_COMPARISON.md`](PIPELINE_COMPARISON.md) for detailed comparison.
-
 ## 📡 API Reference
 
 ### Backend Endpoints (Go - Port 8080)

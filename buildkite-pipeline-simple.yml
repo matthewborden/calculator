@@ -87,17 +87,7 @@ steps:
       npm audit --audit-level moderate || true
     image: "node:18"
 
-  - label: ":rust: Test Rust Components"
-    command: |
-      # Next.js has Rust components (SWC)
-      if [ -f "packages/next-swc/Cargo.toml" ]; then
-        cd packages/next-swc
-        cargo test --release
-        cargo clippy -- -D warnings
-      else
-        echo "No Rust components found, skipping"
-      fi
-    image: "rust:1.75-alpine"
+
 
   - label: ":mag: SAST Security Scanning"
     command: |
