@@ -44,37 +44,42 @@ steps:
       echo "Frontend health check passed"
     image: "node:18"
 
-  - label: ":test_tube: Integration Tests"
+  - label: ":test_tube: Full Integration Tests"
     command: |
+      # Install Node.js on golang image
+      curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+      apt-get install -y nodejs
+
       # Start backend
       cd backend
       go run main.go &
       BACKEND_PID=$!
       sleep 3
-      
-      # Start frontend  
+
+      # Start frontend
       cd ../frontend
+      npm ci
       export BACKEND_URL=http://localhost:8081
       npm start &
       FRONTEND_PID=$!
       sleep 5
-      
+
       # Test API endpoints
       echo "Testing backend API..."
       curl -f -X POST http://localhost:8081/calculate \
         -H "Content-Type: application/json" \
         -d '{"a": 10, "b": 5, "operation": "add"}' || exit 1
-      
+
       echo "Testing frontend proxy..."
       curl -f -X POST http://localhost:3000/api/calculate \
         -H "Content-Type: application/json" \
         -d '{"a": 15, "b": 3, "operation": "multiply"}' || exit 1
-      
+
       echo "Testing health endpoints..."
       curl -f http://localhost:8081/health || exit 1
       curl -f http://localhost:3000/health || exit 1
       curl -f http://localhost:3000/api/backend-health || exit 1
-      
+
       # Cleanup
       kill $BACKEND_PID $FRONTEND_PID
       echo "Integration tests passed!"
@@ -94,7 +99,7 @@ steps:
       # Simulate deployment to staging
       echo "Deploying calculator app to staging environment..."
       echo "Staging URL: https://calculator-staging-$${BUILDKITE_COMMIT:0:7}.example.com"
-      
+
       # Create deployment manifest
       cat > deployment-staging.yaml << 'EOF'
       apiVersion: apps/v1
@@ -123,7 +128,7 @@ steps:
               ports:
               - containerPort: 8081
       EOF
-      
+
       echo "Deployment manifest created"
     # No image specified - uses default ubuntu:22.04
     branches: "main develop"
@@ -137,7 +142,7 @@ steps:
       echo "Deploying Ghostty-themed calculator to production..."
       echo "Production URL: https://calculator.example.com"
       echo "Build commit: $${BUILDKITE_COMMIT}"
-      
+
       # Create production deployment
       cat > deployment-production.yaml << 'EOF'
       apiVersion: apps/v1
@@ -180,9 +185,9 @@ steps:
                   cpu: 1000m
                   memory: 1Gi
       EOF
-      
+
       echo "🚀 Ghostty-themed calculator deployed successfully"
-      
+
       # Create deployment artifact
       echo "$${BUILDKITE_COMMIT}" > deployment-version.txt
       echo "$(date)" >> deployment-version.txt
@@ -192,11 +197,11 @@ steps:
   - label: ":package: Package application"
     command: |
       apt-get update && apt-get install -y zip
-      
+
       # Create deployment package
       zip -r calculator-app-$${BUILDKITE_COMMIT}.zip \
         frontend/ backend/ README.md
-      
+
       # Create artifact info
       echo "Ghostty-themed Calculator App Build" > build-info.txt
       echo "Commit: $${BUILDKITE_COMMIT}" >> build-info.txt
@@ -204,7 +209,7 @@ steps:
       echo "Build: $${BUILDKITE_BUILD_NUMBER}" >> build-info.txt
       echo "Date: $(date)" >> build-info.txt
       echo "Theme: Ghostty Terminal" >> build-info.txt
-      
+
       ls -la *.zip *.txt
     # No image specified in this step.
     # Therefore, this step's job uses the pipeline's default ubuntu:22.04 image

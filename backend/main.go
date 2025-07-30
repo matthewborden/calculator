@@ -173,7 +173,7 @@ func main() {
 	http.HandleFunc("/calculate", calculateHandler)
 	http.HandleFunc("/health", healthHandler)
 	
-	fmt.Println("🧮 Calculator Backend API server starting on :8080")
+	fmt.Println("🧮 Calculator Backend API server starting on :8081")
 	fmt.Println("📋 Available endpoints:")
 	fmt.Println("   POST /calculate - Perform calculations")
 	fmt.Println("   GET  /health    - Health check")

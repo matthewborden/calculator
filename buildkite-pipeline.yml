@@ -63,37 +63,42 @@ steps:
                 name: frontend-service
                 workingDir: /buildkite/builds
 
-  - label: ":test_tube: Integration Tests"
+  - label: ":test_tube: Full Integration Tests"
     command: |
+      # Install Node.js on golang image
+      curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+      apt-get install -y nodejs
+
       # Start backend
       cd backend
       go run main.go &
       BACKEND_PID=$!
       sleep 3
-      
-      # Start frontend  
+
+      # Start frontend
       cd ../frontend
-      export BACKEND_URL=http://localhost:8080
+      npm ci
+      export BACKEND_URL=http://localhost:8081
       npm start &
       FRONTEND_PID=$!
       sleep 5
-      
+
       # Test API endpoints
       echo "Testing backend API..."
-      curl -f -X POST http://localhost:8080/calculate \
+      curl -f -X POST http://localhost:8081/calculate \
         -H "Content-Type: application/json" \
         -d '{"a": 10, "b": 5, "operation": "add"}' || exit 1
-      
+
       echo "Testing frontend proxy..."
       curl -f -X POST http://localhost:3000/api/calculate \
         -H "Content-Type: application/json" \
         -d '{"a": 15, "b": 3, "operation": "multiply"}' || exit 1
-      
+
       echo "Testing health endpoints..."
-      curl -f http://localhost:8080/health || exit 1
+      curl -f http://localhost:8081/health || exit 1
       curl -f http://localhost:3000/health || exit 1
       curl -f http://localhost:3000/api/backend-health || exit 1
-      
+
       # Cleanup
       kill $BACKEND_PID $FRONTEND_PID
       echo "Integration tests passed!"
@@ -108,18 +113,18 @@ steps:
   - label: ":package: Package application"
     command: |
       apt-get update && apt-get install -y zip
-      
+
       # Create deployment package
       zip -r calculator-app-${BUILDKITE_COMMIT}.zip \
         frontend/ backend/ README.md
-      
+
       # Create artifact info
       echo "Calculator App Build" > build-info.txt
       echo "Commit: ${BUILDKITE_COMMIT}" >> build-info.txt
       echo "Branch: ${BUILDKITE_BRANCH}" >> build-info.txt
       echo "Build: ${BUILDKITE_BUILD_NUMBER}" >> build-info.txt
       echo "Date: $(date)" >> build-info.txt
-      
+
       ls -la *.zip *.txt
     plugins:
       - kubernetes:
