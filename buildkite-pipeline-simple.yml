@@ -79,8 +79,13 @@ steps:
       curl -f http://localhost:3000/api/backend-health || exit 1
 
       # Cleanup
-      kill $BACKEND_PID
-      kill $FRONTEND_PID
+      echo "Cleaning up processes..."
+      if [ ! -z "$BACKEND_PID" ]; then
+        kill $BACKEND_PID 2>/dev/null || echo "Backend process already stopped"
+      fi
+      if [ ! -z "$FRONTEND_PID" ]; then
+        kill $FRONTEND_PID 2>/dev/null || echo "Frontend process already stopped"
+      fi
       echo "Integration tests passed!"
     image: "golang:1.21"
 
